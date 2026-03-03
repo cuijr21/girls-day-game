@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>女生节：多铁大富翁</title>
+    <style>
+        :root {
+            --primary-color: #d32f2f; 
+            --secondary-color: #ff5252;
+            --bg-color: #f8f9fc; 
+            --panel-bg: #ffffff; 
+            --grid-color: #e2e8f0; 
+            --line-color: #1e293b; 
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            display: flex; background-color: var(--bg-color); color: #333;
+            margin: 0; padding: 0; height: 100vh; overflow: hidden; 
+        }
+        
+        /* 左侧控制台 */
+        .panel { 
+            width: 320px; background: rgba(255, 255, 255, 0.95); padding: 25px; 
+            box-shadow: 10px 0 30px rgba(0,0,0,0.05); 
+            display: flex; flex-direction: column; z-index: 100;
+            overflow-y: auto; backdrop-filter: blur(10px);
+        }
+        
+        h1 { 
+            font-size: 26px; text-align: center; margin-top: 0; letter-spacing: 1px; 
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text; color: transparent; font-weight: 900;
+        }
+        
+        .instructions { 
+            background: #fff5f5; padding: 15px; border-radius: 10px; 
+            border-left: 5px solid var(--secondary-color); margin-bottom: 20px; font-size: 13px; color: #444; 
+            line-height: 1.6; box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+        
+        .gift-editor {
+            background: #ffffff; border: 1px solid #edf2f7; border-radius: 10px; padding: 15px; margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03); max-height: 25vh; overflow-y: auto;
+        }
+        .gift-editor::-webkit-scrollbar { width: 5px; }
+        .gift-editor::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+        .gift-editor h3 { margin: 0 0 12px 0; font-size: 15px; color: #1e293b; text-align: center; font-weight: 800;}
+        .gift-item { display: flex; align-items: center; margin-bottom: 8px; font-size: 13px;}
+        .gift-item span { width: 45px; font-weight: bold; color: #e91e63; }
+        .gift-item input { flex-grow: 1; padding: 6px 10px; border: 1px solid #cbd5e1; background: #f8fafc; color: #333; border-radius: 6px; font-size: 12px; transition: all 0.3s;}
+        .gift-item input:focus { outline: none; border-color: #ff5252; background: #fff; box-shadow: 0 0 0 3px rgba(255,82,82,0.1); }
+        
+        #log { 
+            flex-grow: 1; background: #1e293b; color: #38bdf8; padding: 15px; 
+            border-radius: 10px; overflow-y: auto; font-size: 13px; line-height: 1.6; 
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.2); font-family: "Fira Code", monospace;
+        }
+        #log::-webkit-scrollbar { width: 6px; }
+        #log::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        
+        /* 🌟 右侧游戏区及中岛水印 */
+        .board-container { 
+            flex-grow: 1; position: relative; 
+            background-color: var(--bg-color); 
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 30px 30px; 
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        /* 中岛水印层：把准备好的图片放到 url() 里 */
+        .center-watermark {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 400px; height: 400px; z-index: 0; pointer-events: none;
+            /* background-image: url('your_crystal_or_football_bg.png'); */
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            opacity: 0.08; /* 非常淡的水印，提升质感 */
+            
+            /* 如果没有图片，可以用下面这行纯文字代替作为多铁彩蛋 */
+            content: "Polarization"; font-size: 80px; font-weight: 900; color: rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: center;
+        }
+
+        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+
+        .cell-wrapper {
+            position: absolute; transform: translate(-50%, -50%);
+            display: flex; flex-direction: column; align-items: center;
+            z-index: 5; cursor: pointer; transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .cell-wrapper:hover { transform: translate(-50%, -50%) scale(1.15); z-index: 8; }
+
+        .cell {
+            width: 62px; height: 62px; 
+            background-color: #ffffff; border: 2px solid #334155; 
+            border-radius: 12px; 
+            display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            position: relative; padding-bottom: 6px; box-sizing: border-box;
+            transition: all 0.3s;
+        }
+        
+        /* 🌟 多样化动画反馈 */
+        @keyframes cell-landing-flash {
+            0% { transform: scale(1); box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: #334155; }
+            40% { transform: scale(1.25); box-shadow: 0 0 25px #f59e0b; border-color: #f59e0b; background-color: #fffbeb; }
+            100% { transform: scale(1); box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: #334155; }
+        }
+        @keyframes cell-shake {
+            0%, 100% { transform: translateX(0) scale(1.1); border-color: #ef4444; background-color: #fef2f2;}
+            25% { transform: translateX(-6px) rotate(-5deg) scale(1.1); }
+            75% { transform: translateX(6px) rotate(5deg) scale(1.1); }
+        }
+        @keyframes cell-bounce {
+            0%, 100% { transform: translateY(0) scale(1); border-color: #10b981; }
+            50% { transform: translateY(-15px) scale(1.1); box-shadow: 0 15px 20px rgba(16, 185, 129, 0.3); }
+        }
+
+        .anim-flash .cell { animation: cell-landing-flash 0.8s ease-out; z-index: 10; }
+        .anim-shake .cell { animation: cell-shake 0.5s ease-in-out; z-index: 10; }
+        .anim-bounce .cell { animation: cell-bounce 0.6s ease-out; z-index: 10; }
+
+        .cell-num-badge { 
+            position: absolute; top: -6px; left: -6px; 
+            background: #1e293b; color: #fff; 
+            font-size: 12px; font-weight: 900; 
+            width: 22px; height: 22px; border-radius: 50%; 
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3); z-index: 2;
+        }
+        
+        .cell-icon { font-size: 20px; margin-bottom: 3px; }
+        .cell-txt { font-size: 11px; font-weight: 900; text-align: center; line-height: 1.1; width: 100%; letter-spacing: -0.5px; }
+
+        .txt-gift { color: #e91e63; }
+        .txt-candy { color: #f59e0b; }
+        .txt-forward { color: #10b981; }
+        .txt-backward { color: #8b5cf6; }
+        .txt-sing { color: #0ea5e9; }
+        .txt-jump { color: #ef4444; } 
+        .txt-gift { color: #e91e63; }
+        .txt-candy { color: #f59e0b; }
+        .txt-forward { color: #10b981; }
+        .txt-backward { color: #8b5cf6; }
+        .txt-sing { color: #0ea5e9; } /* 这行如果你不要了可以删掉 */
+        .txt-jump { color: #ef4444; } 
+        
+        /* 新增的惩罚颜色，深红色加微弱发光警告感 */
+        .txt-penalty { color: #dc2626; text-shadow: 0 1px 3px rgba(220, 38, 38, 0.2); }
+        
+        .cell-teleport { border: 2px dashed #ef4444; background-color: #fff5f5; animation: tp-pulse 2s infinite alternate; }
+        @keyframes tp-pulse {
+            0% { box-shadow: 0 0 5px rgba(239,68,68,0.2); }
+            100% { box-shadow: 0 0 15px rgba(239,68,68,0.6); }
+        }
+
+        .cell-40-wrapper { z-index: 7; }
+        .cell-40 { 
+            width: 90px !important; height: 90px !important; 
+            background: linear-gradient(135deg, #fbbf24, #f59e0b); 
+            border: 3px solid #fff; border-radius: 20px;
+            animation: super-pulse 1.5s infinite alternate; 
+        }
+        @keyframes super-pulse {
+            0% { box-shadow: 0 0 20px rgba(251,191,36,0.6), inset 0 0 10px rgba(255,255,255,0.5); transform: scale(1); }
+            100% { box-shadow: 0 0 40px rgba(251,191,36,1), inset 0 0 20px rgba(255,255,255,0.8); transform: scale(1.05); }
+        }
+        .cell-40 .cell-num-badge { background: #d32f2f; width: 28px; height: 28px; font-size: 14px; top: -8px; left: -8px;}
+        .cell-40 .cell-icon { font-size: 38px; margin-bottom: 5px; }
+        .cell-40 .cell-txt { color: #b41c1c; font-size: 14px; text-shadow: 0 1px 2px rgba(255,255,255,0.6); }
+
+        .start-label {
+            position: absolute; top: -30px; background: #d32f2f; color: #fff; 
+            font-size: 14px; font-weight: 900; padding: 4px 12px; border-radius: 8px;
+            white-space: nowrap; box-shadow: 0 4px 8px rgba(0,0,0,0.3); z-index: 10;
+        }
+
+        .token { 
+            position: absolute; width: 34px; height: 34px; 
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            background-size: cover; background-position: center; z-index: 15; cursor: pointer;
+            border: 3px solid #fff; border-radius: 50%;
+            transform: translate(-50%, -50%); box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        
+        @keyframes token-hover {
+            0% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -60%) scale(1.2); }
+        }
+        .token.selected {
+            border-color: #fde047; box-shadow: 0 0 0 5px rgba(253, 224, 71, 0.4), 0 0 25px #f59e0b;
+            z-index: 20; animation: token-hover 0.8s infinite alternate ease-in-out;
+        }
+        
+        #token_A { background-image: url('icon_a.png'); background-color: transparent; }
+        #token_B { background-image: url('icon_b.png'); background-color: transparent; }
+        #token_C { background-image: url('icon_c.png'); background-color: transparent; }
+        
+        .token-label { 
+            position: absolute; top: -24px; left: -14px; width: 62px; 
+            text-align: center; font-size: 11px; font-weight: 900; 
+            background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; color: #1e293b;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 2px 0;
+        }
+
+        /* 🌟 撒花粒子样式 */
+        .confetti {
+            position: absolute; width: 20px; height: 20px; z-index: 999; pointer-events: none;
+            animation: fall linear forwards;
+        }
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="panel">
+    <h1>🎀 女生节：多铁大富翁</h1>
+    <div class="instructions">
+        <b>👉 游戏指令：</b><br>
+        1. 锁定下方要移动的<b>队伍图标</b>。<br>
+        2. 点击地图上的<b>目标晶格</b>。<br>
+        3. 注意时空传送门！
+    </div>
+    
+    <div class="gift-editor" id="giftEditor">
+        <h3>🎁 奖励清单配置区</h3>
+    </div>
+
+    <div id="log">>> 大富翁系统加载完毕<br>>> 等待极化指令...<br><br></div>
+</div>
+
+<div class="board-container" id="board">
+    <div class="center-watermark"></div>
+    <div id="token_A" class="token" onclick="selectTeam('A')"><div class="token-label" id="label_A">芙队</div></div>
+    <div id="token_B" class="token" onclick="selectTeam('B')"><div class="token-label" id="label_B">顾队</div></div>
+    <div id="token_C" class="token" onclick="selectTeam('C')"><div class="token-label" id="label_C">娜队</div></div>
+</div>
+
+<script>
+    const teamNames = { "A": "芙队", "B": "顾队", "C": "娜队" };
+
+    const defaultGifts = {
+        2: "纯牛马卡套", 5: "捏捏乐", 10: "马上有钱钥匙扣", 15: "零食小礼包",
+        17: "loopy吐泡泡", 19: "歪头奶龙", 22: "马上有钱钥匙扣", 25: "捏捏乐",
+        26: "纯牛马卡套", 28: "零食小礼包", 30: "loopy吐泡泡", 34: "马上有钱钥匙扣",
+        37: "马上有钱钥匙扣", 39: "零食小礼包"
+    };
+
+    const editorDiv = document.getElementById("giftEditor");
+    for (const [cellNum, giftName] of Object.entries(defaultGifts)) {
+        editorDiv.innerHTML += `
+            <div class="gift-item">
+                <span>${cellNum}格:</span>
+                <input type="text" id="gift_input_${cellNum}" value="${giftName}">
+            </div>`;
+    }
+
+    const boardEvents = {
+        1: "跳至第9格", 2: "小礼物", 3: "糖果", 4: "前进3格", 5: "小礼物", 
+        6: "惩罚：唱首歌", 7: "糖果", 8: "前进3格", 9: "糖果", 10: "小礼物",
+        11: "糖果", 12: "后退3格", 13: "惩罚：唱首歌", 14: "糖果", 15: "小礼物", 
+        16: "前进3格", 17: "小礼物", 18: "糖果", 19: "小礼物", 20: "跳至第29格",
+        21: "后退3格", 22: "小礼物", 23: "惩罚：唱首歌", 24: "前进3格", 25: "小礼物", 
+        26: "小礼物", 27: "糖果", 28: "小礼物", 29: "糖果", 30: "小礼物",
+        31: "惩罚：唱首歌", 32: "前进3格", 33: "糖果", 34: "小礼物", 35: "糖果", 
+        36: "后退3格", 37: "小礼物", 38: "惩罚：唱首歌", 39: "小礼物", 40: "终极大奖"
+    };
+
+   const eventStyleMap = {
+        "糖果": { cls: "txt-candy", icon: "🍬", anim: "anim-bounce" },
+        "小礼物": { cls: "txt-gift", icon: "🎁", anim: "anim-bounce" },
+        "前进3格": { cls: "txt-forward", icon: "🚀", anim: "anim-flash" },
+        "后退3格": { cls: "txt-backward", icon: "🔙", anim: "anim-shake" },
+        "惩罚：唱首歌": { cls: "txt-penalty", icon: "⚠️", anim: "anim-shake" }, 
+        "终极大奖": { cls: "txt-prize", icon: "👑", anim: "anim-flash" },
+        "跳至第9格": { cls: "txt-jump", icon: "🛸", anim: "anim-flash" },
+        "跳至第29格": { cls: "txt-jump", icon: "🛸", anim: "anim-flash" }
+    };
+
+    const coordinates = [
+        [80, 9], [72.1, 9], [64.3, 9], [56.4, 9], [48.6, 9], [40.7, 9], [32.9, 9], [25, 9],
+        [21.5, 11.5], 
+        [20, 17], [20, 24.5], [20, 32], [20, 39.5], [20, 47], [20, 54.5], [20, 62], [20, 69.5], [20, 77],
+        [20, 84.5],   
+        [10, 91.5],   
+        [20, 91.5], [27.9, 91.5], [35.7, 91.5], [43.6, 91.5], [51.4, 91.5], [59.3, 91.5], [67.1, 91.5], [75, 91.5],
+        [78.5, 89],   
+        [80, 83.5], [80, 76], [80, 68.5], [80, 61], [80, 53.5], [80, 46], [80, 38.5], [80, 31], [80, 23.5],
+        [80, 16],     
+        [90, 9]       
+    ];
+
+    const teams = { "A": 0, "B": 0, "C": 0 }; 
+    let currentSelectedTeam = null;
+
+    const boardDiv = document.getElementById("board");
+    let svgHtml = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">`;
+    let d = `M ${coordinates[39][0]} ${coordinates[39][1]} `; 
+    d += `Q ${coordinates[38][0]} ${coordinates[0][1]} ${coordinates[0][0]} ${coordinates[0][1]} `; 
+    for (let i = 1; i <= 17; i++) { d += `L ${coordinates[i][0]} ${coordinates[i][1]} `; }
+    d += `Q ${coordinates[17][0]} ${coordinates[19][1]} ${coordinates[19][0]} ${coordinates[19][1]} `; 
+    d += `L ${coordinates[20][0]} ${coordinates[20][1]} `; 
+    for (let i = 21; i <= 37; i++) { d += `L ${coordinates[i][0]} ${coordinates[i][1]} `; }
+    d += `Q ${coordinates[37][0]} ${coordinates[39][1]} ${coordinates[39][0]} ${coordinates[39][1]} `; 
+    svgHtml += `<path d="${d}" fill="none" stroke="var(--line-color)" stroke-width="0.8" stroke-linejoin="round" stroke-linecap="round" />
+                </svg>`;
+    boardDiv.innerHTML += svgHtml;
+
+    for (let i = 1; i <= 40; i++) {
+        let wrapper = document.createElement("div");
+        wrapper.className = "cell-wrapper" + (i === 40 ? " cell-40-wrapper" : ""); 
+        wrapper.id = `cell-wrapper-${i}`; 
+        wrapper.style.left = coordinates[i-1][0] + "%";
+        wrapper.style.top = coordinates[i-1][1] + "%";
+        wrapper.onclick = () => moveToCell(i);
+        
+        let eventName = boardEvents[i];
+        let styleData = eventStyleMap[eventName];
+        let extraHtml = "";
+        let extraCellClass = "";
+
+        if (i === 40) {
+            extraHtml = `<div class="start-label">起点/终点</div>`;
+            extraCellClass = "cell-40";
+        } else if (i === 1 || i === 20) {
+            extraCellClass = "cell-teleport"; 
+        }
+
+        wrapper.innerHTML = `
+            ${extraHtml}
+            <div class="cell ${extraCellClass}">
+                <div class="cell-num-badge">${i}</div>
+                <div class="cell-icon">${styleData.icon}</div>
+                <div class="cell-txt ${styleData.cls}">${eventName}</div>
+            </div>`;
+        
+        boardDiv.appendChild(wrapper);
+    }
+
+    // 🌟 预留的音效播放函数 (需要音效时，将音频文件放到同目录，取消注释即可)
+    function playSound(type) {
+        // const audioMap = {
+        //     'move': new Audio('move.mp3'),
+        //     'gift': new Audio('gift.mp3'),
+        //     'penalty': new Audio('error.mp3'),
+        //     'win': new Audio('tada.mp3')
+        // };
+        // if(audioMap[type]) audioMap[type].play().catch(e => {});
+    }
+
+    // 🌟 全屏撒花粒子特效
+    function fireConfetti() {
+        playSound('win');
+        const emojis = ['👑', '🎁', '🎉', '🍬', '🎈', '✨'];
+        for (let i = 0; i < 80; i++) {
+            let confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.top = -20 + 'px';
+            confetti.style.fontSize = (Math.random() * 20 + 10) + 'px';
+            confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+            document.body.appendChild(confetti);
+            setTimeout(() => confetti.remove(), 5000); // 5秒后清理
+        }
+    }
+
+    function logMessage(msg) {
+        const logDiv = document.getElementById("log");
+        logDiv.innerHTML += `> ${msg}<br>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function selectTeam(teamKey) {
+        document.querySelectorAll('.token').forEach(el => el.classList.remove('selected'));
+        currentSelectedTeam = teamKey;
+        document.getElementById("token_" + teamKey).classList.add('selected');
+        logMessage(`[系统] 锁定 <b>${teamNames[teamKey]}</b>，等待极化指令...`);
+    }
+
+    function updateTokenUI(teamKey, pos) {
+        playSound('move');
+        const visualPos = (pos === 0 || pos > 40) ? 40 : pos;
+        const coord = coordinates[visualPos - 1];
+        const tokenElement = document.getElementById("token_" + teamKey);
+        
+        let offset_x = (teamKey === 'A') ? -16 : (teamKey === 'B' ? 16 : 0);
+        let offset_y = (teamKey === 'A') ? -26 : (teamKey === 'B' ? -26 : -40);
+        
+        tokenElement.style.left = `calc(${coord[0]}% + ${offset_x}px)`;
+        tokenElement.style.top = `calc(${coord[1]}% + ${offset_y}px)`;
+    }
+    
+    // 🌟 动态触发事件对应的专属动画 (弹跳/发抖/高亮)
+    function triggerEventAnimation(pos, eventName) {
+        if(pos < 1 || pos > 40) return;
+        const wrapper = document.getElementById(`cell-wrapper-${pos}`);
+        const animClass = eventStyleMap[eventName]?.anim || "anim-flash";
+        
+        // 播放对应音效
+        if(eventName.includes("礼物") || eventName.includes("糖果")) playSound('gift');
+        else if(eventName.includes("唱") || eventName.includes("后退")) playSound('penalty');
+
+        wrapper.classList.remove('anim-flash', 'anim-shake', 'anim-bounce');
+        void wrapper.offsetWidth; 
+        wrapper.classList.add(animClass);
+        setTimeout(() => wrapper.classList.remove(animClass), 1000);
+    }
+
+    function moveToCell(targetPos) {
+        if (!currentSelectedTeam) {
+            alert("请先在左下角点击锁定一个队伍！");
+            return;
+        }
+
+        const teamKey = currentSelectedTeam;
+        teams[teamKey] = targetPos;
+        updateTokenUI(teamKey, targetPos);
+        
+        let event = boardEvents[targetPos];
+        
+        // 如果不是连环跳板格子，直接播放落点动画
+        if (!["前进3格", "后退3格", "跳至第9格", "跳至第29格"].includes(event) && targetPos !== 40) {
+            triggerEventAnimation(targetPos, event);
+        }
+
+        document.getElementById("token_" + teamKey).classList.remove('selected');
+        currentSelectedTeam = null;
+
+        if (targetPos === 40) {
+            triggerEventAnimation(40, "终极大奖");
+            fireConfetti(); // 触发全屏撒花
+            logMessage(`🎊 <span style="color:#e91e63; font-size:14px;"><b>${teamNames[teamKey]} 冲向王座！触发【终极大奖】👑！</b></span><br>`);
+            return;
+        }
+
+        let extraInfo = "";
+        if (event === "小礼物") {
+            let giftInput = document.getElementById(`gift_input_${targetPos}`);
+            if(giftInput) { extraInfo = ` <span style="color:#e91e63;">(奖励：${giftInput.value})</span>`; }
+        }
+
+        logMessage(`📍 ${teamNames[teamKey]} 跃迁至 <b>${targetPos}</b> 格，遭遇【${event}】${extraInfo}`);
+
+        // 连锁移动判定
+        if (event === "前进3格" || event === "后退3格") {
+            setTimeout(() => {
+                let newPos = (event === "前进3格") ? targetPos + 3 : targetPos - 3;
+                teams[teamKey] = newPos;
+                updateTokenUI(teamKey, newPos);
+                triggerEventAnimation(newPos, boardEvents[newPos]); 
+                logMessage(`💫 ${teamNames[teamKey]} 滑行至 <b>${newPos}</b> 格，获得【${boardEvents[newPos]}】`);
+            }, 1000);
+        } else if (event === "跳至第9格") {
+            setTimeout(() => {
+                teams[teamKey] = 9;
+                updateTokenUI(teamKey, 9);
+                triggerEventAnimation(9, boardEvents[9]); 
+                logMessage(`🛸 ${teamNames[teamKey]} 瞬间传送至 <b>9</b> 格，获得【${boardEvents[9]}】`);
+            }, 1200);
+        } else if (event === "跳至第29格") {
+            setTimeout(() => {
+                teams[teamKey] = 29;
+                updateTokenUI(teamKey, 29);
+                triggerEventAnimation(29, boardEvents[29]); 
+                logMessage(`🛸 ${teamNames[teamKey]} 瞬间传送至 <b>29</b> 格，获得【${boardEvents[29]}】`);
+            }, 1200);
+        }
+    }
+
+    // 初始化
+    setTimeout(() => {
+        updateTokenUI('A', 0);
+        updateTokenUI('B', 0);
+        updateTokenUI('C', 0);
+    }, 100);
+
+</script>
+</body>
+</html>
